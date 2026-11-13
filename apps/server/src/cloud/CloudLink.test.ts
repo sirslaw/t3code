@@ -28,6 +28,7 @@ import {
   RELAY_URL_SECRET,
 } from "./config.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
+import * as ServerSettings from "../serverSettings.ts";
 
 const encode = (value: string) => new TextEncoder().encode(value);
 
@@ -72,6 +73,7 @@ const withService = <A, E>(
       { preconnect: () => {} },
     );
     const layerDependencies = Layer.mergeAll(
+      ServerSettings.ServerSettingsService.layerTest(),
       Layer.mock(ServerSecretStore.ServerSecretStore)({
         get: (name) =>
           (options.failActivityRead && name === PUBLISH_AGENT_ACTIVITY_SECRET) ||
@@ -265,6 +267,7 @@ it.effect("unlinks on startup and refuses to link when the policy turns Connect 
     ]);
     const appliedConfigs: Array<unknown> = [];
     const layerDependencies = Layer.mergeAll(
+      ServerSettings.ServerSettingsService.layerTest(),
       Layer.mock(ServerSecretStore.ServerSecretStore)({
         get: (name) => Effect.succeed(Option.fromNullishOr(stored.get(name))),
         set: (name, value) => Effect.sync(() => void stored.set(name, value)),
