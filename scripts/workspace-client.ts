@@ -34,7 +34,9 @@ const runtime = explicitServer
 const target = new URL(explicitServer ?? `http://127.0.0.1:${runtime!.port}`);
 if (!["127.0.0.1", "localhost", "[::1]"].includes(target.hostname))
   throw new Error("Workspace development attaches only to a local T3 server.");
-const descriptorResponse = await fetch(new URL("/.well-known/t3/environment", target));
+const descriptorResponse = await fetch(new URL("/.well-known/t3/environment", target), {
+  signal: AbortSignal.timeout(5000),
+});
 if (!descriptorResponse.ok)
   throw new Error("Native T3 is not reachable. Start it normally, then reopen T3 Workspace.");
 const descriptor = (await descriptorResponse.json()) as {
@@ -159,6 +161,7 @@ if (!process.argv.includes("--web")) {
       node: process.execPath,
       launcher: NodePath.join(root, "scripts/workspace-client.ts"),
       backend: target.origin,
+      serverVersion: supportedVersion,
       port,
       path: process.env.PATH,
       cacheDirectory: NodePath.join(directory, "summaries"),

@@ -35,11 +35,20 @@ export function threadKey(thread: Pick<EnvironmentThreadShell, "environmentId" |
 
 export function summarySource(thread: EnvironmentThreadShell): string {
   return JSON.stringify([
-    thread.title,
     thread.latestUserMessageAt,
     thread.latestRun?.runId,
     thread.latestRun?.completedAt,
   ]);
+}
+
+export function summaryContextSource(source: string): string {
+  try {
+    const fields: unknown = JSON.parse(source);
+    // Four-field cache sources include a title; renaming does not change conversation context.
+    return Array.isArray(fields) && fields.length === 4 ? JSON.stringify(fields.slice(1)) : source;
+  } catch {
+    return source;
+  }
 }
 
 export interface ThreadSummary {
@@ -50,7 +59,7 @@ export interface ThreadSummary {
 }
 export interface SummaryData {
   threads: Record<string, ThreadSummary>;
-  locations: Record<string, { summary: string; generatedAt: string }>;
+  locations: Record<string, { summary: string; generatedAt: string; source?: string }>;
 }
 export const EMPTY_SUMMARIES: SummaryData = { threads: {}, locations: {} };
 
@@ -73,13 +82,115 @@ export interface WorkLocation {
   threads: EnvironmentThreadShell[];
 }
 
-export function locationSource(location: Pick<WorkLocation, "key" | "threads">): string {
-  return JSON.stringify([
-    location.key,
+export function locationSource(
+  location: Pick<WorkLocation, "threads">,
+  sources?: Record<string, Pick<ThreadSummary, "source">>,
+): string {
+  return JSON.stringify(
     location.threads
-      .map((thread) => [threadKey(thread), summarySource(thread)])
+      .map((thread) => [
+        threadKey(thread),
+        sources
+          ? summaryContextSource(sources[threadKey(thread)]?.source ?? "")
+          : summarySource(thread),
+      ])
       .sort((a, b) => a[0]!.localeCompare(b[0]!)),
+  );
+}
+
+export function locationKey(location: Pick<WorkLocation, "threads">): string {
+  return JSON.stringify(location.threads.map(threadKey).sort());
+}
+
+export function locationSummary(
+  location: WorkLocation,
+  summaries: SummaryData,
+): string | undefined {
+  if (location.threads.length === 1)
+    return summaries.threads[threadKey(location.threads[0]!)]?.summary;
+  const saved = summaries.locations[locationKey(location)];
+  return saved?.source === locationSource(location, summaries.threads) ? saved.summary : undefined;
+}
+
+export function summaryReady(thread: EnvironmentThreadShell): boolean {
+  return (
+    thread.latestUserMessageAt !== null &&
+    (!thread.latestRun ||
+      (thread.latestRun.completedAt !== null &&
+        thread.latestUserMessageAt <= thread.latestRun.completedAt))
+  );
+}
+
+export function planSummaries(locations: readonly WorkLocation[], cached: SummaryData) {
+  const threads = [
+    ...new Map(
+      locations
+        .flatMap((location) => location.threads)
+        .map((thread) => [threadKey(thread), thread]),
+    ).values(),
+  ]
+    .filter(
+      (thread) =>
+        summaryReady(thread) &&
+        summaryContextSource(cached.threads[threadKey(thread)]?.source ?? "") !==
+          summarySource(thread),
+    )
+    .slice(0, 16);
+  const sources = {
+    ...cached.threads,
+    ...Object.fromEntries(
+      threads.map((thread) => [threadKey(thread), { source: summarySource(thread) }]),
+    ),
+  };
+  const groups = [
+    ...new Map(
+      locations
+        .filter(
+          (location) =>
+            location.threads.length > 1 &&
+            location.threads.every(
+              (thread) =>
+                sources[threadKey(thread)] &&
+                (!summaryReady(thread) ||
+                  summaryContextSource(sources[threadKey(thread)]?.source ?? "") ===
+                    summarySource(thread)),
+            ),
+        )
+        .map((location) => {
+          const key = locationKey(location);
+          return [
+            key,
+            {
+              key,
+              source: locationSource(location, sources),
+              title: location.branch ?? location.project.title,
+              members: location.threads.map(threadKey),
+            },
+          ] as const;
+        }),
+    ).values(),
+  ]
+    .filter((location) => cached.locations[location.key]?.source !== location.source)
+    .slice(0, 16);
+  return { threads, locations: groups };
+}
+
+export function selectSummaryMessages(
+  messages: readonly { role: string; text: string; streaming: boolean }[],
+) {
+  const completed = messages.filter((message) => !message.streaming);
+  const users = completed.filter((message) => message.role === "user");
+  const selected = new Set([
+    users[0],
+    users.at(-1),
+    completed.findLast((message) => message.role === "assistant"),
   ]);
+  return completed
+    .filter((message) => selected.has(message))
+    .map((message) => ({
+      role: message.role,
+      text: message.role === "user" ? message.text.slice(0, 1200) : message.text.slice(-2400),
+    }));
 }
 
 export function workLocations(
@@ -149,6 +260,7 @@ export interface SummaryThreadInput {
 }
 export interface SummaryLocationInput {
   key: string;
+  source: string;
   title: string;
   members: string[];
 }

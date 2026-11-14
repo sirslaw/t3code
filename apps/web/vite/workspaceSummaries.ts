@@ -5,10 +5,21 @@ import type * as NodeHttp from "node:http";
 import type { Plugin } from "vite-plus";
 import {
   EMPTY_SUMMARIES,
+  summaryContextSource,
   type SummaryData,
   type SummaryInput,
 } from "../src/components/pullRequest/workspaceOverview.ts";
 import { generateSummaries } from "./workspaceSummaryGeneration.ts";
+
+interface SummaryStore {
+  cached: SummaryData;
+  queue: Promise<void>;
+  loaded: boolean;
+}
+const storeKey = Symbol.for("t3.workspace-summary-stores");
+const processStores = globalThis as typeof globalThis & { [storeKey]?: Map<string, SummaryStore> };
+// Vite reloads its config modules while paid generations may still be running.
+const stores = (processStores[storeKey] ??= new Map<string, SummaryStore>());
 
 export function validateSummaryInput(value: unknown): SummaryInput {
   if (!value || typeof value !== "object") throw new Error("Invalid summary request.");
@@ -16,8 +27,8 @@ export function validateSummaryInput(value: unknown): SummaryInput {
   if (
     !Array.isArray(input.threads) ||
     !Array.isArray(input.locations) ||
-    input.threads.length > 200 ||
-    input.locations.length > 200
+    input.threads.length > 16 ||
+    input.locations.length > 16
   )
     throw new Error("Invalid summary request.");
   const string = (value: unknown, limit: number): value is string =>
@@ -42,6 +53,7 @@ export function validateSummaryInput(value: unknown): SummaryInput {
   for (const location of input.locations) {
     if (
       !string(location.key, 100_000) ||
+      !string(location.source, 100_000) ||
       !string(location.title, 1000) ||
       !Array.isArray(location.members) ||
       location.members.length > 200 ||
@@ -64,8 +76,12 @@ async function requestBody(request: NodeHttp.IncomingMessage): Promise<unknown> 
 }
 
 export function workspaceSummariesPlugin(directory: string): Plugin {
-  let cached: SummaryData = EMPTY_SUMMARIES;
-  let queue = Promise.resolve();
+  let store = stores.get(directory);
+  if (!store) {
+    store = { cached: EMPTY_SUMMARIES, queue: Promise.resolve(), loaded: false };
+    stores.set(directory, store);
+  }
+  const state = store;
   const cachePath = NodePath.join(directory, "summaries.json");
   return {
     name: "workspace-client-summaries",
@@ -78,11 +94,14 @@ export function workspaceSummariesPlugin(directory: string): Plugin {
         response.end(JSON.stringify({ directory }));
       });
       await NodeFSP.mkdir(directory, { recursive: true, mode: 0o700 });
-      try {
-        const saved = JSON.parse(await NodeFSP.readFile(cachePath, "utf8")) as SummaryData;
-        if (saved.threads && saved.locations) cached = saved;
-      } catch {
-        /* An absent cache starts empty; native data is never read here. */
+      if (!state.loaded) {
+        state.loaded = true;
+        try {
+          const saved = JSON.parse(await NodeFSP.readFile(cachePath, "utf8")) as SummaryData;
+          if (saved.threads && saved.locations) state.cached = saved;
+        } catch {
+          /* An absent cache starts empty; native data is never read here. */
+        }
       }
       server.middlewares.use("/__workspace/summaries", (request, response) => {
         const reply = (status: number, body: unknown) => {
@@ -100,7 +119,7 @@ export function workspaceSummariesPlugin(directory: string): Plugin {
           return;
         }
         if (request.method === "GET") {
-          reply(200, cached);
+          reply(200, state.cached);
           return;
         }
         if (request.method !== "POST") {
@@ -110,23 +129,28 @@ export function workspaceSummariesPlugin(directory: string): Plugin {
         void requestBody(request)
           .then(validateSummaryInput)
           .then((input) => {
-            const run = queue.then(async () => {
+            const run = state.queue.then(async () => {
+              if (response.destroyed) return;
               const missing: SummaryInput = {
                 threads: input.threads.filter(
-                  (thread) => cached.threads[thread.key]?.source !== thread.source,
+                  (thread) =>
+                    summaryContextSource(state.cached.threads[thread.key]?.source ?? "") !==
+                    thread.source,
                 ),
-                locations: input.locations.filter((location) => !cached.locations[location.key]),
+                locations: input.locations.filter(
+                  (location) => state.cached.locations[location.key]?.source !== location.source,
+                ),
               };
               if (missing.threads.length || missing.locations.length) {
-                const next = await generateSummaries(missing, cached, directory);
+                const next = await generateSummaries(missing, state.cached, directory);
                 const temporary = `${cachePath}.tmp`;
                 await NodeFSP.writeFile(temporary, JSON.stringify(next), { mode: 0o600 });
                 await NodeFSP.rename(temporary, cachePath);
-                cached = next;
+                state.cached = next;
               }
-              reply(200, cached);
+              reply(200, state.cached);
             });
-            queue = run.catch((cause) => {
+            state.queue = run.catch((cause) => {
               reply(503, {
                 error: cause instanceof Error ? cause.message : "Summary generation failed.",
               });

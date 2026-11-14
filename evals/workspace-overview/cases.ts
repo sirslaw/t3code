@@ -65,8 +65,8 @@ export const cases: SummaryInput = {
     },
   ],
   locations: [
-    { key: "inventory", title: "inventory-refactor", members: ["build", "review"] },
-    { key: "growth", title: "staging", members: ["research"] },
-    { key: "migration", title: "api-migration", members: ["injection"] },
+    { key: "inventory", source: "one", title: "inventory-refactor", members: ["build", "review"] },
+    { key: "growth", source: "one", title: "staging", members: ["research"] },
+    { key: "migration", source: "one", title: "api-migration", members: ["injection"] },
   ],
 };

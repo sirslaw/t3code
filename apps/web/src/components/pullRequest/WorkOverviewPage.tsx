@@ -20,7 +20,7 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { useProjects, useVisibleThreadShells } from "~/state/entities";
+import { useProjects, useQuietThreadShells } from "~/state/entities";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useEnvironmentScope } from "~/state/session";
 import { useNowMinute } from "~/hooks/useNowMinute";
@@ -35,7 +35,7 @@ import { PullRequestGlyph } from "./pullRequestIcons";
 import { toastManager } from "../ui/toast";
 import {
   compactText,
-  locationSource,
+  locationSummary,
   nonSettled,
   threadKey,
   workLocations,
@@ -61,8 +61,13 @@ export function WorkViewTabs({ work = false }: { work?: boolean }) {
       <div className={styles["page-toolbar"]}>
         <div className={styles["view-tabs"]} role="tablist" aria-label="Pull request views">
           <Link
+            from="/pull-requests"
             to="/pull-requests"
-            search={{ involvement: "all", state: "open" }}
+            search={(previous) => {
+              const next = { ...previous };
+              delete next.view;
+              return next;
+            }}
             className={styles["view-tab"]}
             role="tab"
             aria-selected={!work}
@@ -71,8 +76,9 @@ export function WorkViewTabs({ work = false }: { work?: boolean }) {
             Pull requests
           </Link>
           <Link
+            from="/pull-requests"
             to="/pull-requests"
-            search={{ involvement: "all", state: "open", view: "work" }}
+            search={(previous) => ({ ...previous, view: "work" })}
             className={styles["view-tab"]}
             role="tab"
             aria-selected={work}
@@ -215,6 +221,7 @@ function LocationBlock({
   onToggle,
   onOpenPr,
   summaries,
+  visibleThreads,
 }: {
   location: WorkLocation;
   now: string;
@@ -223,9 +230,13 @@ function LocationBlock({
   onToggle: () => void;
   onOpenPr: () => void;
   summaries: SummaryData;
+  visibleThreads: readonly EnvironmentThreadShell[];
 }) {
-  const heading = location.branch ?? location.project.title;
-  const summary = summaries.locations[locationSource(location)];
+  const heading =
+    groupBy === "pr" && location.pullRequest
+      ? `#${location.pullRequest.number} · ${location.branch ?? location.project.title}`
+      : (location.branch ?? location.project.title);
+  const summary = locationSummary(location, summaries);
   return (
     <section className={styles.location} aria-label={heading}>
       <div className={styles["location-head"]}>
@@ -276,22 +287,22 @@ function LocationBlock({
             </span>
           </div>
           <p className={styles["location-summary"]}>
-            {summary?.summary ??
+            {summary ??
               `${location.threads.length} non-settled ${location.threads.length === 1 ? "thread" : "threads"} in this ${groupBy === "pr" ? "group" : groupBy}.`}
           </p>
-          <WorkStateCounts threads={location.threads} now={now} />
+          <WorkStateCounts threads={visibleThreads} now={now} />
         </div>
         <div className={styles["location-actions"]}>
           <span className={styles["location-count"]}>
             <MessageSquareIcon className={`${styles.ico} ${styles.small}`} />
-            {location.threads.length} {location.threads.length === 1 ? "thread" : "threads"}
+            {visibleThreads.length} {visibleThreads.length === 1 ? "thread" : "threads"}
           </span>
           <NewAttachedThreadButton thread={location.threads[0]!} />
         </div>
       </div>
       {expanded ? (
         <div className={styles["thread-list"]}>
-          {location.threads.map((thread) => (
+          {visibleThreads.map((thread) => (
             <OverviewThreadCard
               key={threadKey(thread)}
               thread={thread}
@@ -307,7 +318,7 @@ function LocationBlock({
 
 export function WorkOverviewPage() {
   const search = useSearch({ from: "/_chat/pull-requests" });
-  const allThreads = useVisibleThreadShells();
+  const allThreads = useQuietThreadShells();
   const projects = useProjects();
   const now = new Date(useNowMinute()).toISOString();
   const [query, setQuery] = useState("");
@@ -334,9 +345,11 @@ export function WorkOverviewPage() {
             .toLocaleLowerCase()
             .includes(query.toLocaleLowerCase())),
     );
-    return matching.length ? [{ ...location, threads: matching }] : [];
+    return matching.length ? [{ location, matching }] : [];
   });
-  const count = new Set(filtered.flatMap((location) => location.threads.map(threadKey))).size;
+  if (expansion.size === 0 && filtered[0])
+    setExpansion(new Map([[filtered[0].location.key, true]]));
+  const count = new Set(filtered.flatMap(({ matching }) => matching.map(threadKey))).size;
   const panelPr = panel?.pullRequest
     ? sourceControlClients.parseChangeRequestUrl(panel.pullRequest.url)?.link
     : null;
@@ -452,17 +465,18 @@ export function WorkOverviewPage() {
                   : "Worktree / pull request"}
             </span>
           </div>
-          {filtered.map((location, index) => (
+          {filtered.map(({ location, matching }) => (
             <LocationBlock
               key={location.key}
               location={location}
               now={now}
               groupBy={groupBy}
               summaries={summaries}
-              expanded={expansion.get(location.key) ?? index === 0}
+              visibleThreads={matching}
+              expanded={expansion.get(location.key) ?? false}
               onToggle={() =>
                 setExpansion((old) =>
-                  new Map(old).set(location.key, !(old.get(location.key) ?? index === 0)),
+                  new Map(old).set(location.key, !(old.get(location.key) ?? false)),
                 )
               }
               onOpenPr={() => setPanel(location)}

@@ -1,13 +1,5 @@
 .t3-work-overview {
-  --concept-sidebar-width: 354px;
   --concept-faint: color-mix(in srgb, var(--foreground) 5%, transparent);
-  --concept-dim: color-mix(in srgb, var(--foreground) 35%, transparent);
-  --concept-label-bg: color-mix(in srgb, var(--muted-foreground) 11%, transparent);
-  --concept-label-text: color-mix(in srgb, var(--foreground) 72%, transparent);
-  --concept-sg-bg: color-mix(in srgb, var(--color-lime-500) 12%, transparent);
-  --concept-sg-fg: var(--color-lime-400);
-  --concept-codex-bg: var(--color-blue-600);
-  --concept-claude-fg: #d97757;
 
   min-width: 0;
   .ico {
@@ -65,30 +57,7 @@
     background: var(--accent);
     color: var(--foreground);
   }
-  .feature-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    width: fit-content;
-    max-width: 180px;
-    white-space: nowrap;
-    font-size: 10px;
-    line-height: 15px;
-    font-weight: 500;
-    color: var(--concept-label-text);
-    border-radius: 4px;
-    background: var(--concept-label-bg);
-    padding: 0 5px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  button.feature-label {
-    border: 0;
-  }
-  button.feature-label:hover {
-    background: var(--accent);
-    color: var(--foreground);
-  }
+
   .page {
     flex: 1;
     min-height: 0;
@@ -337,10 +306,7 @@
   .location-meta .mono {
     font-family: var(--font-mono);
   }
-  .dot-separator {
-    color: var(--concept-dim);
-    padding: 0 3px;
-  }
+
   .location-summary {
     color: var(--secondary-label);
     font-size: 12px;
@@ -377,11 +343,6 @@
     font-size: 11px;
     height: 27px;
   }
-  .pr-thread-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 14px;
-  }
   .state-counts {
     display: flex;
     align-items: center;
@@ -409,9 +370,7 @@
   .state-snoozed {
     color: var(--muted-foreground);
   }
-  .state-settled {
-    color: var(--success-foreground);
-  }
+
   .thread-list {
     margin-left: 27px;
     margin-bottom: 11px;
@@ -497,28 +456,7 @@
     color: var(--muted-foreground);
     align-self: flex-start;
   }
-  .empty-locations {
-    padding: 16px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--muted-foreground);
-  }
-  .empty-locations label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-  input[type="checkbox"] {
-    width: 12px;
-    height: 12px;
-    accent-color: var(--primary);
-  }
-  .empty-group {
-    opacity: 0.65;
-  }
+
   .empty-state {
     padding: 48px 16px;
     text-align: center;
@@ -609,7 +547,6 @@
       width: min(430px, 100%);
     }
     .location-count,
-    .location-title-row .feature-label,
     .thread-open {
       display: none;
     }
@@ -705,14 +642,7 @@
     .thread-detail-line .provider-name {
       display: none;
     }
-    .empty-locations {
-      font-size: 10px;
-      align-items: flex-start;
-      gap: 10px;
-    }
-    .empty-locations .auto-label {
-      display: none;
-    }
+
     .location-actions {
       flex-basis: 100%;
       align-items: flex-start;

@@ -4,6 +4,10 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
 import {
+  DEFAULT_TEXT_GENERATION_MODEL,
+  DEFAULT_TEXT_GENERATION_REASONING_EFFORT,
+} from "@t3tools/contracts";
+import {
   compactText,
   THREAD_SUMMARY_LIMIT,
   LOCATION_SUMMARY_LIMIT,
@@ -79,6 +83,7 @@ export function applyGenerated(
     if (matches.length !== 1 || !entry?.summary?.trim())
       throw new Error("The summary model omitted a work location. Refresh to retry.");
     next.locations[location.key] = {
+      source: location.source,
       generatedAt,
       summary: compactText(entry.summary, LOCATION_SUMMARY_LIMIT, 24),
     };
@@ -129,9 +134,9 @@ export async function generateSummaries(
           "--sandbox",
           "read-only",
           "--model",
-          "gpt-6.1-sol",
+          DEFAULT_TEXT_GENERATION_MODEL,
           "-c",
-          'model_reasoning_effort="low"',
+          `model_reasoning_effort="${DEFAULT_TEXT_GENERATION_REASONING_EFFORT}"`,
           "-c",
           "features.plugins=false",
           "-c",

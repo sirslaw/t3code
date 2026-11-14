@@ -1,11 +1,11 @@
 import type { EnvironmentId, PullRequestRef } from "@t3tools/contracts";
-import { useProjects, useVisibleThreadShells } from "~/state/entities";
+import { useProjects, useQuietThreadShells } from "~/state/entities";
 import { useNowMinute } from "~/hooks/useNowMinute";
 import { useEnvironmentQuery } from "~/state/query";
 import { vcsEnvironment } from "~/state/vcs";
 import { resolveBranchSelectionTarget } from "../BranchToolbar.logic";
 import { NewAttachedThreadButton, OverviewThreadCard, WorkStateCounts } from "./WorkOverviewPage";
-import { locationSource, threadKey, workLocations } from "./workspaceOverview";
+import { locationSummary, threadKey, workLocations } from "./workspaceOverview";
 import { useWorkspaceSummaries } from "./useWorkspaceSummaries";
 import styles from "./workOverview.module.css";
 
@@ -20,7 +20,7 @@ export function PullRequestWorkThreads({
   url: string;
   headBranch: string;
 }) {
-  const threads = useVisibleThreadShells();
+  const threads = useQuietThreadShells();
   const projects = useProjects();
   const now = new Date(useNowMinute()).toISOString();
   const location = workLocations(
@@ -28,7 +28,7 @@ export function PullRequestWorkThreads({
     projects,
     "pr",
   ).find((location) => location.pullRequest?.url.toLowerCase() === url.toLowerCase());
-  const { summaries, error } = useWorkspaceSummaries(location ? [location] : []);
+  const { summaries, error, refresh, pending } = useWorkspaceSummaries(location ? [location] : []);
   const root = projects.find(
     (project) => project.environmentId === environmentId && project.id === reference.projectId,
   )?.workspaceRoot;
@@ -81,7 +81,7 @@ export function PullRequestWorkThreads({
         </div>
         {location ? (
           <p className={styles["thread-summary"]}>
-            {summaries.locations[locationSource(location)]?.summary ??
+            {locationSummary(location, summaries) ??
               `${location.threads.length} non-settled ${location.threads.length === 1 ? "thread" : "threads"} on this pull request.`}
           </p>
         ) : null}
@@ -103,6 +103,9 @@ export function PullRequestWorkThreads({
         {error ? (
           <p role="status" className={styles["overview-footer"]}>
             {error}
+            <button type="button" disabled={pending} onClick={refresh}>
+              Retry
+            </button>
           </p>
         ) : null}
       </div>
