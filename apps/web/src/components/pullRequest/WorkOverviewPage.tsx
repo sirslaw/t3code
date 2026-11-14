@@ -451,7 +451,11 @@ export function WorkOverviewPage() {
               {filtered.length}{" "}
               {groupBy === "pr"
                 ? `group${filtered.length === 1 ? "" : "s"}`
-                : `${groupBy}${filtered.length === 1 ? "" : "s"}`}
+                : filtered.length === 1
+                  ? groupBy
+                  : groupBy === "branch"
+                    ? "branches"
+                    : "worktrees"}
             </span>
             <span>·</span>
             <span>
