@@ -51,3 +51,9 @@ node_modules/
 .pnpm-store/
 
 /packages/ssh/.ssh-launcher-test-*/
+
+# Custom client profile, summaries, logs, and development app.
+/.workspace-client/
+
+# Temporary verification and implementation artifacts.
+/tmp/

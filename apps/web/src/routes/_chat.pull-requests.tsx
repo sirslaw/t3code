@@ -29,6 +29,7 @@ function pullRequestSearchLabels(raw: unknown): PullRequestsSearch["labels"] {
 
 export const Route = createFileRoute("/_chat/pull-requests")({
   validateSearch: (raw: Record<string, unknown>): PullRequestsSearch => ({
+    ...(raw.view === "work" ? { view: "work" as const } : {}),
     ...(typeof raw.selectedUrl === "string" ? { selectedUrl: raw.selectedUrl.slice(0, 4096) } : {}),
     involvement:
       raw.involvement === "reviewing" || raw.involvement === "authored" ? raw.involvement : "all",

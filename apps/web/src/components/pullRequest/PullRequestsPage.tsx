@@ -1,5 +1,6 @@
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { applyPullRequestDraftFilterChange } from "@t3tools/client-runtime/pull-request-query";
+import { WorkOverviewPage } from "./WorkOverviewPage";
 import { Spinner } from "~/components/ui/spinner";
 import type { PullRequestSpeedActionResult } from "~/components/pullRequest/PullRequestSpeedActions";
 import { usePullRequestCloseBatch } from "~/components/pullRequest/usePullRequestActions";
@@ -148,6 +149,11 @@ const EMPTY_PREVIEW_DESKTOP_STATE = {};
 const EMPTY_TERMINAL_LABELS = new Map<string, string>();
 const EMPTY_PENDING_SURFACES = new Set<string>();
 export function PullRequestsPage() {
+  const search = useSearch({ from: "/_chat/pull-requests" });
+  return search.view === "work" ? <WorkOverviewPage /> : <NativePullRequestsPage />;
+}
+
+function NativePullRequestsPage() {
   const search = useSearch({ from: "/_chat/pull-requests" });
   const sort = search.sort ?? "ready";
   const statsPolicy: PullRequestStatsPolicy =

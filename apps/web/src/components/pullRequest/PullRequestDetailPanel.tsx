@@ -78,6 +78,7 @@ import {
   capitalizeTerm,
   sourceControlClients,
 } from "@t3tools/client-runtime/source-control-clients";
+import { PullRequestWorkThreads } from "./PullRequestWorkThreads";
 import { PullRequestThreadLinks } from "./PullRequestThreadLinks";
 import { vcsEnvironment } from "~/state/vcs";
 import { RelativeTime } from "~/components/RelativeTime";
@@ -207,6 +208,7 @@ const UPDATE_BRANCH_REBASE_FAILURE_HINT =
 
 const TABS: ReadonlyArray<{ value: PullRequestDetailTab; label: string }> = [
   { value: "summary", label: "Summary" },
+  { value: "threads", label: "Threads" },
   { value: "guide", label: "Guide" },
   { value: "timeline", label: "Timeline" },
   { value: "code", label: "Code" },
@@ -1872,6 +1874,14 @@ export function PullRequestDetailPanel({
           />
         ) : detail ? (
           <PullRequestMarkdownContext value={markdownContext}>
+            {tab === "threads" ? (
+              <PullRequestWorkThreads
+                environmentId={environmentId}
+                reference={reference}
+                url={detail.url}
+                headBranch={detail.headBranch}
+              />
+            ) : null}
             {mountedTabs.has("summary") ? (
               <div className={cn("absolute inset-0", tab !== "summary" && "invisible")}>
                 <PullRequestSummaryTab
