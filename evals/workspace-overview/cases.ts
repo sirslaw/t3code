@@ -4,6 +4,22 @@ import type { SummaryInput } from "../../apps/web/src/components/pullRequest/wor
 export const cases: SummaryInput = {
   threads: [
     {
+      key: "decision",
+      source: "one",
+      title: "Review player settings layouts",
+      state: "open",
+      messages: [
+        {
+          role: "user",
+          text: "Review the settings fix and compare layouts A through D. Do not build a layout without my choice.",
+        },
+        {
+          role: "assistant",
+          text: "Core fixes and focused tests pass. Type checking and real provider verification remain incomplete. Layout A keeps the current hierarchy; B adds a preview; C moves configuration; D has variants D1 and D2. D2 is recommended but awaits the user's choice. No layout implementation is approved.",
+        },
+      ],
+    },
+    {
       key: "build",
       source: "one",
       title: "Inventory refactoring",

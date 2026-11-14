@@ -11,7 +11,8 @@ export const THREAD_SUMMARY_LIMIT = 120;
 export const LOCATION_SUMMARY_LIMIT = 160;
 
 export function compactText(value: string, characters: number, words: number): string {
-  const text = value.replace(/\s+/g, " ").trim().split(" ").slice(0, words).join(" ");
+  const tokens = value.replace(/\s+/g, " ").trim().split(" ");
+  const text = tokens.slice(0, words).join(" ") + (tokens.length > words ? "…" : "");
   if (text.length <= characters) return text;
   const cut = text.slice(0, characters - 1);
   const boundary = cut.lastIndexOf(" ");

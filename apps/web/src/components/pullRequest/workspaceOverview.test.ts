@@ -278,5 +278,6 @@ describe("workspace overview membership", () => {
     expect(summary.length).toBeLessThanOrEqual(120);
     expect(summary.split(" ").length).toBeLessThanOrEqual(18);
     expect(summary).not.toContain("\n");
+    expect(compactText("one two three four", 120, 3)).toBe("one two three…");
   });
 });
